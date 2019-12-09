@@ -35,14 +35,20 @@ app.get("/urls", (req, res) => {
 });
 
 app.post("/urls", (req, res) => {
-  urlDatabase[generateRandomString()] = req.body.longURL;
-  res.end();
+  const key = generateRandomString();
+  urlDatabase[key] = req.body.longURL;
+  res.redirect(`/urls/${key}`);
 });
 
 app.get("/urls/:shortURL", (req, res) => {
   const key = req.params.shortURL;
   let templateVars = { shortURL: key, longURL: urlDatabase[key] };
   res.render("urls_show", templateVars);
+});
+
+app.get("/u/:shortURL", (req, res) => {
+  const longURL = urlDatabase[req.params.shortURL];
+  res.redirect(longURL);
 });
 
 app.listen(PORT, () => {
