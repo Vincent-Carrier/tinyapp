@@ -1,7 +1,6 @@
 const express = require("express");
 const app = express();
 const PORT = 3000; // default port 8080
-const path = require('path');
 
 app.set("view engine", "ejs");
 
@@ -41,6 +40,12 @@ app.post("/urls", (req, res) => {
 app.post("/urls/:shortURL/delete", (req, res) => {
   delete urlDatabase[req.params.shortURL];
   res.redirect('/urls');
+});
+
+app.post("/urls/:shortURL", (req, res) => {
+  const key = req.params.shortURL;
+  urlDatabase[key] = req.body.newURL;
+  res.redirect(`/urls/${key}`);
 });
 
 app.get("/urls/:shortURL", (req, res) => {
