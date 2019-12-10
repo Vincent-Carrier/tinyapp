@@ -8,9 +8,7 @@ app.set("view engine", "ejs");
 const bodyParser = require("body-parser");
 app.use(bodyParser.urlencoded({extended: true}));
 
-function generateRandomString() {
-  return Math.random().toString(36).substring(0, 6);
-}
+const generateRandomString = () => Math.random().toString(36).substring(2, 8);
 
 const urlDatabase = {
   b2xVn2: "http://www.lighthouselabs.ca",
@@ -38,6 +36,11 @@ app.post("/urls", (req, res) => {
   const key = generateRandomString();
   urlDatabase[key] = req.body.longURL;
   res.redirect(`/urls/${key}`);
+});
+
+app.post("/urls/:shortURL/delete", (req, res) => {
+  delete urlDatabase[req.params.shortURL];
+  res.redirect('/urls');
 });
 
 app.get("/urls/:shortURL", (req, res) => {
