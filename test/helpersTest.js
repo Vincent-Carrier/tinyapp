@@ -21,4 +21,10 @@ describe("getUserByEmail", function() {
     const expectedOutput = "userRandomID";
     assert(user.id === expectedOutput);
   });
+
+  it("should return undefined for a non-existing user", function() {
+    const user = getUserByEmail("user@nonexisting.com", testUsers);
+    const expectedOutput = undefined;
+    assert(user === expectedOutput);
+  });
 });
