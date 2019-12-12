@@ -2,10 +2,17 @@ const express = require("express");
 const app = express();
 const PORT = 3000; // default port 8080
 
-const bcrypt = require('bcrypt');
+const { find, get } = require("lodash");
+const bcrypt = require("bcrypt");
 
-const cookieParser = require("cookie-parser");
-app.use(cookieParser());
+const cookieSession = require("cookie-session");
+app.use(
+  cookieSession({
+    name: "session",
+    keys: ["MYSUPERSECRETKEY"],
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  })
+);
 
 app.set("view engine", "ejs");
 
@@ -19,6 +26,10 @@ const generateRandomString = () =>
 
 const urlDatabase = {
   b2xVn2: { longURL: "http://www.lighthouselabs.ca", userID: "userRandomID" }
+};
+
+const getUserByEmail = function(email, db) {
+  return find(db, usr => usr.email === email);
 };
 
 const users = {
@@ -39,12 +50,18 @@ app.get("/", (req, res) => {
 });
 
 app.get("/register", (req, res) => {
-  let templateVars = { user: users[req.cookies["user_id"]] };
+  let templateVars = {
+    user: req.session.userID,
+    email: users[req.session.userID]
+  };
   res.render("register", templateVars);
 });
 
 app.get("/login", (req, res) => {
-  let templateVars = { user: users[req.cookies["user_id"]] };
+  let templateVars = {
+    user: req.session.userID,
+    email: users[req.session.userID]
+  };
   res.render("login", templateVars);
 });
 
@@ -56,31 +73,24 @@ app.post("/register", (req, res) => {
   }
   const id = generateRandomString();
   users[id] = { id, email, password: bcrypt.hashSync(password, 10) };
-  res.cookie("user_id", id);
+  req.session.userID = id;
   res.redirect("/urls");
 });
 
 app.post("/login", (req, res) => {
   const { email, password } = req.body;
-  let match = false;
-  for (const id in users) {
-    const usr = users[id];
-    console.log(usr.password, password);
-    if (usr.email === email && bcrypt.compareSync(password, usr.password)) {
-      match = true;
-      res.cookie("user_id", id).redirect("/urls");
-      return;
-    }
-  }
-  if (!match) {
+  const user = getUserByEmail(email, users);
+  if (user && bcrypt.compareSync(password, user.password)) {
+    req.session.userID = user.id;
+    res.redirect("/urls");
+  } else {
     res.status(403);
     res.send("Couldn't match your email and password.");
-    res.redirect("/urls");
   }
 });
 
 app.post("/logout", (req, res) => {
-  res.clearCookie("user_id");
+  delete req.session.userID;
   res.redirect("/urls");
 });
 
@@ -89,7 +99,7 @@ app.get("/urls.json", (req, res) => {
 });
 
 app.get("/urls/new", (req, res) => {
-  let templateVars = { user: users[req.cookies["user_id"]] };
+  let templateVars = { user: users[req.session.userID] };
   if (templateVars.user) {
     res.render("urls_new", templateVars);
   } else {
@@ -98,24 +108,26 @@ app.get("/urls/new", (req, res) => {
 });
 
 app.get("/urls", (req, res) => {
-  console.log("=== USERS ===");
-  console.log(users);
-  console.log("=== URLS ===");
-  console.log(urlDatabase);
-  let templateVars = { urls: urlDatabase, user: users[req.cookies["user_id"]] };
+  let templateVars = {
+    urls: urlDatabase,
+    user: users[req.session.userID]
+  };
   res.render("urls_index", templateVars);
 });
 
 app.post("/urls", (req, res) => {
   const key = generateRandomString();
-  urlDatabase[key] = { longURL: req.body.longURL, userID: users[req.cookies["user_id"]] };
+  urlDatabase[key] = {
+    longURL: req.body.longURL,
+    userID: req.session.userID,
+  };
   res.redirect(`/urls/${key}`);
 });
 
 app.post("/urls/:shortURL/delete", (req, res) => {
   const key = req.params.shortURL;
   const url = urlDatabase[key];
-  if (url.userID !== users[req.cookies["user_id"]]) {
+  if (url.userID !== req.session.userID) {
     res.status(403);
     res.send("Access Denied. Cannot modify an URL you don't own");
   } else {
@@ -127,7 +139,7 @@ app.post("/urls/:shortURL/delete", (req, res) => {
 app.post("/urls/:shortURL", (req, res) => {
   const key = req.params.shortURL;
   const url = urlDatabase[key];
-  if (url.userID !== users[req.cookies["user_id"]]) {
+  if (url.userID !== req.session.userID) {
     res.status(403);
     res.send("Access Denied. Cannot modify an URL you don't own");
   } else {
@@ -139,14 +151,15 @@ app.post("/urls/:shortURL", (req, res) => {
 app.get("/urls/:shortURL", (req, res) => {
   const key = req.params.shortURL;
   const url = urlDatabase[key];
-  if (url.userID !== users[req.cookies["user_id"]]) {
+  if (url.userID !== req.session.userID) {
     res.status(403);
     res.send("Access Denied. Cannot modify an URL you don't own");
   } else {
     let templateVars = {
       shortURL: key,
       longURL: urlDatabase[key],
-      user: users[req.cookies["user_id"]]
+      user: req.session.userID,
+      email: users[req.session.userID].email
     };
     res.render("urls_show", templateVars);
   }
