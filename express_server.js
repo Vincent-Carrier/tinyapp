@@ -1,8 +1,8 @@
+const { getUserByEmail } = require("./helpers");
 const express = require("express");
 const app = express();
 const PORT = 3000; // default port 8080
 
-const { find, get } = require("lodash");
 const bcrypt = require("bcrypt");
 
 const cookieSession = require("cookie-session");
@@ -26,10 +26,6 @@ const generateRandomString = () =>
 
 const urlDatabase = {
   b2xVn2: { longURL: "http://www.lighthouselabs.ca", userID: "userRandomID" }
-};
-
-const getUserByEmail = function(email, db) {
-  return find(db, usr => usr.email === email);
 };
 
 const users = {
