@@ -16,8 +16,7 @@ const generateRandomString = () =>
     .substring(2, 8);
 
 const urlDatabase = {
-  b2xVn2: "http://www.lighthouselabs.ca",
-  "9sm5xK": "http://www.google.com"
+  b2xVn2: { longURL: "http://www.lighthouselabs.ca", userID: "userRandomID" }
 };
 
 const users = {
@@ -88,7 +87,11 @@ app.get("/urls.json", (req, res) => {
 
 app.get("/urls/new", (req, res) => {
   let templateVars = { user: users[req.cookies["user_id"]] };
-  res.render("urls_new", templateVars);
+  if (templateVars.user) {
+    res.render("urls_new", templateVars);
+  } else {
+    res.redirect("/login");
+  }
 });
 
 app.get("/urls", (req, res) => {
@@ -98,29 +101,48 @@ app.get("/urls", (req, res) => {
 
 app.post("/urls", (req, res) => {
   const key = generateRandomString();
-  urlDatabase[key] = req.body.longURL;
+  urlDatabase[key] = { longURL: req.body.longURL, userID: users[req.cookies["user_id"]] };
   res.redirect(`/urls/${key}`);
 });
 
 app.post("/urls/:shortURL/delete", (req, res) => {
-  delete urlDatabase[req.params.shortURL];
-  res.redirect("/urls");
+  const key = req.params.shortURL;
+  const url = urlDatabase[key];
+  if (url.userID !== users[req.cookies["user_id"]]) {
+    res.status(403);
+    res.send("Access Denied. Cannot modify an URL you don't own");
+  } else {
+    delete urlDatabase[key];
+    res.redirect("/urls");
+  }
 });
 
 app.post("/urls/:shortURL", (req, res) => {
   const key = req.params.shortURL;
-  urlDatabase[key] = req.body.newURL;
-  res.redirect(`/urls/${key}`);
+  const url = urlDatabase[key];
+  if (url.userID !== users[req.cookies["user_id"]]) {
+    res.status(403);
+    res.send("Access Denied. Cannot modify an URL you don't own");
+  } else {
+    urlDatabase[key] = req.body.newURL;
+    res.redirect(`/urls/${key}`);
+  }
 });
 
 app.get("/urls/:shortURL", (req, res) => {
   const key = req.params.shortURL;
-  let templateVars = {
-    shortURL: key,
-    longURL: urlDatabase[key],
-    user: users[req.cookies["user_id"]]
-  };
-  res.render("urls_show", templateVars);
+  const url = urlDatabase[key];
+  if (url.userID !== users[req.cookies["user_id"]]) {
+    res.status(403);
+    res.send("Access Denied. Cannot modify an URL you don't own");
+  } else {
+    let templateVars = {
+      shortURL: key,
+      longURL: urlDatabase[key],
+      user: users[req.cookies["user_id"]]
+    };
+    res.render("urls_show", templateVars);
+  }
 });
 
 app.get("/u/:shortURL", (req, res) => {
