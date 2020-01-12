@@ -1,4 +1,10 @@
-const { users, urlDatabase, getUserByEmail, generateRandomString, loggedInUser } = require("./helpers");
+const {
+  users,
+  urlDatabase,
+  getUserByEmail,
+  generateRandomString,
+  loggedInUser
+} = require("./helpers");
 const express = require("express");
 const bcrypt = require("bcrypt");
 const bodyParser = require("body-parser");
@@ -23,7 +29,7 @@ app.get("/", (req, res) => {
   if (req.session.userID) {
     res.redirect("/urls");
   } else {
-    res.redirect("/login")
+    res.redirect("/login");
   }
 });
 
@@ -99,7 +105,7 @@ app.post("/urls", (req, res) => {
   const key = generateRandomString();
   urlDatabase[key] = {
     longURL: req.body.longURL,
-    userID: req.session.userID,
+    userID: req.session.userID
   };
   res.redirect(`/urls/${key}`);
 });
@@ -142,7 +148,7 @@ app.get("/urls/:shortURL", (req, res) => {
 });
 
 app.get("/u/:shortURL", (req, res) => {
-  console.log("URLS: ", urlDatabase)
+  console.log("URLS: ", urlDatabase);
   const longURL = urlDatabase[req.params.shortURL].longURL;
   res.redirect(longURL);
 });

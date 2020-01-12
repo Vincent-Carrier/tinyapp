@@ -1,7 +1,7 @@
 const { find } = require("lodash");
 
-exports.users = { };
-exports.urlDatabase = { };
+exports.users = {};
+exports.urlDatabase = {};
 
 exports.getUserByEmail = function(email, db) {
   return find(db, usr => usr.email === email);
@@ -17,5 +17,5 @@ exports.loggedInUser = req => {
   return {
     userID: user ? user.id : null,
     email: user ? user.email : null
-  }
-}
+  };
+};
