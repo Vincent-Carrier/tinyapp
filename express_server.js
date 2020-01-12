@@ -1,11 +1,12 @@
-const { getUserByEmail } = require("./helpers");
+const { users, urlDatabase, getUserByEmail, generateRandomString, loggedInUser } = require("./helpers");
 const express = require("express");
+const bcrypt = require("bcrypt");
+const bodyParser = require("body-parser");
+const cookieSession = require("cookie-session");
+
 const app = express();
 const PORT = 3000; // default port 8080
 
-const bcrypt = require("bcrypt");
-
-const cookieSession = require("cookie-session");
 app.use(
   cookieSession({
     name: "session",
@@ -14,58 +15,32 @@ app.use(
   })
 );
 
-app.set("view engine", "ejs");
-
-const bodyParser = require("body-parser");
 app.use(bodyParser.urlencoded({ extended: true }));
 
-const generateRandomString = () =>
-  Math.random()
-    .toString(36)
-    .substring(2, 8);
-
-const urlDatabase = {
-  // b2xVn2: { longURL: "http://www.lighthouselabs.ca", userID: "userRandomID" }
-};
-
-const users = {
-  // userRandomID: {
-  //   id: "userRandomID",
-  //   email: "user@example.com",
-  //   password: "purple-monkey-dinosaur"
-  // },
-  // user2RandomID: {
-  //   id: "user2RandomID",
-  //   email: "user2@example.com",
-  //   password: "dishwasher-funk"
-  // }
-};
+app.set("view engine", "ejs");
 
 app.get("/", (req, res) => {
-  res.redirect("/urls");
+  if (req.session.userID) {
+    res.redirect("/urls");
+  } else {
+    res.redirect("/login")
+  }
 });
 
 app.get("/register", (req, res) => {
-  let templateVars = {
-    user: req.session.userID,
-    email: users[req.session.userID]
-  };
+  let templateVars = loggedInUser(req);
   res.render("register", templateVars);
 });
 
 app.get("/login", (req, res) => {
-  let templateVars = {
-    user: req.session.userID,
-    email: users[req.session.userID]
-  };
+  let templateVars = loggedInUser(req);
   res.render("login", templateVars);
 });
 
 app.post("/register", (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) {
-    res.status(400);
-    res.send("Missing email or password");
+    res.status(400).send("Missing email or password");
   }
   const id = generateRandomString();
   users[id] = { id, email, password: bcrypt.hashSync(password, 10) };
@@ -80,14 +55,13 @@ app.post("/login", (req, res) => {
     req.session.userID = user.id;
     res.redirect("/urls");
   } else {
-    res.status(403);
-    res.send("Couldn't match your email and password.");
+    res.status(403).send("Couldn't match your email and password.");
   }
 });
 
 app.post("/logout", (req, res) => {
   delete req.session.userID;
-  res.redirect("/urls");
+  res.redirect("/login");
 });
 
 app.get("/urls.json", (req, res) => {
@@ -95,8 +69,8 @@ app.get("/urls.json", (req, res) => {
 });
 
 app.get("/urls/new", (req, res) => {
-  let templateVars = { user: users[req.session.userID] };
-  if (templateVars.user) {
+  let templateVars = loggedInUser(req);
+  if (templateVars.userID) {
     res.render("urls_new", templateVars);
   } else {
     res.redirect("/login");
@@ -104,11 +78,21 @@ app.get("/urls/new", (req, res) => {
 });
 
 app.get("/urls", (req, res) => {
-  let templateVars = {
-    urls: urlDatabase,
-    user: users[req.session.userID]
-  };
-  res.render("urls_index", templateVars);
+  if (req.session.userID) {
+    let userURLs = {};
+    for (let shortURL in urlDatabase) {
+      if (urlDatabase[shortURL].userID === req.session.userID) {
+        userURLs[shortURL] = urlDatabase[shortURL];
+      }
+    }
+    let templateVars = {
+      urls: userURLs,
+      ...loggedInUser(req)
+    };
+    res.render("urls_index", templateVars);
+  } else {
+    res.send("You need to be logged in to access this page");
+  }
 });
 
 app.post("/urls", (req, res) => {
@@ -124,8 +108,7 @@ app.post("/urls/:shortURL/delete", (req, res) => {
   const key = req.params.shortURL;
   const url = urlDatabase[key];
   if (url.userID !== req.session.userID) {
-    res.status(403);
-    res.send("Access Denied. Cannot modify an URL you don't own");
+    res.status(403).send("Access Denied. Cannot modify an URL you don't own");
   } else {
     delete urlDatabase[key];
     res.redirect("/urls");
@@ -136,10 +119,9 @@ app.post("/urls/:shortURL", (req, res) => {
   const key = req.params.shortURL;
   const url = urlDatabase[key];
   if (url.userID !== req.session.userID) {
-    res.status(403);
-    res.send("Access Denied. Cannot modify an URL you don't own");
+    res.status(403).send("Access Denied. Cannot modify an URL you don't own");
   } else {
-    urlDatabase[key] = req.body.newURL;
+    urlDatabase[key].longURL = req.body.newURL;
     res.redirect(`/urls/${key}`);
   }
 });
@@ -148,21 +130,19 @@ app.get("/urls/:shortURL", (req, res) => {
   const key = req.params.shortURL;
   const url = urlDatabase[key];
   if (url.userID !== req.session.userID) {
-    res.status(403);
-    res.send("Access Denied. Cannot modify an URL you don't own");
+    res.status(403).send("Access Denied. Cannot modify an URL you don't own");
   } else {
     let templateVars = {
       shortURL: key,
-      longURL: urlDatabase[key],
-      user: req.session.userID,
-      email: users[req.session.userID].email
+      longURL: urlDatabase[key].longURL,
+      ...loggedInUser(req)
     };
     res.render("urls_show", templateVars);
   }
 });
 
 app.get("/u/:shortURL", (req, res) => {
-  console.log(urlDatabase)
+  console.log("URLS: ", urlDatabase)
   const longURL = urlDatabase[req.params.shortURL].longURL;
   res.redirect(longURL);
 });
