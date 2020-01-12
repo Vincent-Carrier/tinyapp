@@ -1,7 +1,7 @@
 const { find } = require("lodash");
 
-exports.users = {};
-exports.urlDatabase = {};
+const users = {};
+exports.users = users;
 
 exports.getUserByEmail = function(email, db) {
   return find(db, usr => usr.email === email);
